@@ -10,7 +10,6 @@ Check lib.rs to run all tests. Probably you will need to change a bit of stuff t
 
 https://explorer.solana.com/tx/4hty78jUkZEiSrX2tSx5XU93L289nerZr7eYqc2tbFaSPWbULQVRpRz5CizwxPUp7iAdeGprnQbAZjuFFZRhvMVU?cluster=devnet
 
-| 1st sending the rust submitions
 
 ###  Cheers
 
