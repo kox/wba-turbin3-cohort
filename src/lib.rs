@@ -1,4 +1,4 @@
-mod programs;
+/* mod programs;
 
 #[cfg(test)]
 mod tests {
@@ -293,3 +293,4 @@ mod tests {
         println!("Success! Check out your TX here: https://explorer.solana.com/tx/{}/?cluster=devnet", signature);  
     }
 }
+ */

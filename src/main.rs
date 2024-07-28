@@ -1,6 +1,5 @@
 mod utils; 
 use rocksdb::DB;
-use crate::utils::wallet::Wallet;
 use clap::{Parser, Subcommand};
 
 #[derive(Subcommand)]
@@ -11,6 +10,7 @@ enum Commands {
     ReadKeygen {
         name: String,
     },
+    ListWallets,
     /* Base58ToWallet,
     WalletToBase58,
     Airdrop,
@@ -30,52 +30,94 @@ enum Commands {
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+
+    #[arg(long, default_value = "wba_toolkit", global = true)]
+    db_path: String,
 }
 
 fn main() {
     println!("welcome to main");
 
     let cli = Cli::parse();
-    let db = DB::open_default("wba_toolkit").unwrap();
+    let db = DB::open_default(&cli.db_path).unwrap();
 
     match cli.command {
         Commands::Keygen {name } => utils::wallet::generate_keypair(&db, &name),
-        Commands::ReadKeygen {name } => utils::wallet::read_wallet(&db, &name),
+        Commands::ReadKeygen {name } => {
+            let wallet = utils::wallet::read_wallet(&db, &name);
+            println!("Wallet read: {:?}", wallet.pubkey);
+        },
+        Commands::ListWallets => {
+            let wallets = utils::wallet::list_wallets(&db);
+            println!("wallets: {:?}", wallets)
+        }
     }
-/* 
-    let matches = App::new("Solana CLI")
-        .version("1.0")
-        .author("Your Name <youremail@example.com>")
-        .about("Does awesome things with Solana")
-        .subcommand(SubCommand::with_name("keygen").about("Generate a new keypair"))
-        .get_matches();
- */
-    /* let wallet = Wallet {
-        pubkey: String::from("test"),
-        secret_key: vec![20, 30]
-    };
+}
 
-    print!("testthis {} -> ", wallet.pubkey); */
-/* 
-    let matches = App::new("Wba Turbin3 Cohort")
-        .version("1.0")
-        .author("kox <garsanzi@gmail.com>")
-        .about("Toolkit to ")
-        .arg(
-            Arg::with_name("input")
-                .short("i")
-                .long("input")
-                .value_name("FILE")
-                .help("Sets the input file to use")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("output")
-                .short("o")
-                .long("output")
-                .value_name("FILE")
-                .help("Sets the output file to use")
-                .takes_value(true),
-        )
-        .get_matches(); */
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_cmd::Command;
+    use tempdir::TempDir;
+    use utils::wallet::read_wallet;
+    use predicates::prelude::*; // Import the predicates module
+
+    #[test]
+    fn test_keygen_command() {
+        let tmp_dir = TempDir::new("wallet_db").unwrap();
+        let db_path = tmp_dir.path().to_str().unwrap();
+
+        Command::cargo_bin("turbin3_pre_req")
+            .unwrap()
+            .arg("keygen")
+            .arg("test_wallet")
+            .arg("--db-path")
+            .arg(db_path)
+            .assert()
+            .success();
+            // .stdout(contains("Generated wallet"));
+
+        // Verify the wallet was stored in RocksDB
+        let db = DB::open_default(db_path).unwrap();
+        let wallet = read_wallet(&db, "test_wallet");
+        assert_eq!(wallet.pubkey.len(), 44); // Check that the pubkey is of correct length
+        assert_eq!(wallet.secret_key.len(), 64); // Check that the secret_key is of correct length
+    }
+
+    #[test]
+    fn test_list_wallets() {
+        let tmp_dir = TempDir::new("wallet_db").unwrap();
+        let db_path = tmp_dir.path().to_str().unwrap();
+
+        // Create multiple wallets
+        Command::cargo_bin("turbin3_pre_req")
+            .unwrap()
+            .arg("keygen")
+            .arg("wallet1")
+            .arg("--db-path")
+            .arg(db_path)
+            .assert()
+            .success();
+
+        Command::cargo_bin("turbin3_pre_req")
+            .unwrap()
+            .arg("keygen")
+            .arg("wallet2")
+            .arg("--db-path")
+            .arg(db_path)
+            .assert()
+            .success();
+
+        // List wallets
+        Command::cargo_bin("turbin3_pre_req")
+            .unwrap()
+            .arg("list-wallets")
+            .arg("--db-path")
+            .arg(db_path)
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("wallet:wallet1"))
+            .stdout(predicates::str::contains("wallet:wallet2"));
+    }
 }
