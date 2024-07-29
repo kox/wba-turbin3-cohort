@@ -13,6 +13,11 @@ enum Commands {
     Base58ToWallet { pkey_bs58: String, name: String },
     WalletToBase58 { name: String },
     Airdrop { name: String },
+    Transfer {
+        from: String,
+        to: String,
+        amount: String,
+    },
     /*
     Transfer {
         to: String,
@@ -28,7 +33,7 @@ enum Commands {
 #[command(author = "kox <garsanzi@gmail.com>")]
 #[command(about = "Does awesome things with Solana")]
 struct Cli {
-    #[arg(long, default_value = "db", global = true)]
+    #[arg(long, default_value = "wba_toolkit", global = true)]
     db_path: String,
 
     #[arg(long, default_value = "https://api.devnet.solana.com", global = true)]
@@ -81,7 +86,14 @@ fn main() {
         Commands::Airdrop { name } => {
             let wallet = utils::wallet::read_wallet(&db, &name);
 
-            utils::wallet::airdop(wallet, &cluster_url);
+            utils::solana::airdop(wallet, &cluster_url);
+        },
+        Commands::Transfer { from, to, amount } => {
+            let wallet = utils::wallet::read_wallet(&db, &from);
+            // Convert the string amount to u64
+            let amount = amount.parse::<u64>().expect("Failed to parse amount into u64"); 
+
+            utils::solana::transfer_sol(wallet, &to, amount, &cluster_url);
         }
     }
 }
