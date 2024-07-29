@@ -2,6 +2,7 @@ use std::{collections::HashMap, error::Error};
 
 use rocksdb::DB;
 use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::{signature::Keypair, signer::Signer};
 
 
@@ -109,6 +110,26 @@ pub fn wallet_to_base58(wallet: Wallet) -> String {
     println!("Your private key in base58 is: {:?}", base58);
 
     base58
+}
+
+pub fn airdop(wallet: Wallet, rpc_url: &str) {
+    // Connected to Solana Devnet RPC Client
+    let client = RpcClient::new(rpc_url);
+
+    // We will create a keypair from our wallet struct
+    let keypair = Keypair::from_bytes(&wallet.secret_key).expect("Invalid keypair");
+
+    // We're going to claim 2 devnet SOL tokens (2 billion lamports)
+    match client.request_airdrop(&keypair.pubkey(), 2_000_000_000u64) {
+        Ok(s) => {
+            println!("Success! Check out your TX here:");
+            println!(
+                "https://explorer.solana.com/tx/{}?cluster=devnet",
+                s.to_string()
+            );
+        }
+        Err(e) => println!("Oops, something went wrong: {}", e.to_string()),
+    };
 }
 
 

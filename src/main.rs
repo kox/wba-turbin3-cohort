@@ -12,8 +12,8 @@ enum Commands {
     ListWallets,
     Base58ToWallet { pkey_bs58: String, name: String },
     WalletToBase58 { name: String },
+    Airdrop { name: String },
     /*
-    Airdrop,
     Transfer {
         to: String,
         amount: u64,
@@ -31,6 +31,9 @@ struct Cli {
     #[arg(long, default_value = "db", global = true)]
     db_path: String,
 
+    #[arg(long, default_value = "https://api.devnet.solana.com", global = true)]
+    cluster_url: String,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -40,6 +43,7 @@ fn main() {
 
     let cli = Cli::parse();
     let path = Path::new(&cli.db_path);
+    let cluster_url = cli.cluster_url;
 
     // Create the directory if it doesn't exist
     if !path.exists() {
@@ -73,6 +77,11 @@ fn main() {
             let wallet = utils::wallet::read_wallet(&db, &name);
 
             utils::wallet::wallet_to_base58(wallet);
+        },
+        Commands::Airdrop { name } => {
+            let wallet = utils::wallet::read_wallet(&db, &name);
+
+            utils::wallet::airdop(wallet, &cluster_url);
         }
     }
 }
