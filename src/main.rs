@@ -1,4 +1,6 @@
 mod utils; 
+use std::{fs, path::Path};
+
 use rocksdb::DB;
 use clap::{Parser, Subcommand};
 use solana_sdk::signature::Keypair;
@@ -33,17 +35,24 @@ enum Commands {
 #[command(author = "kox <garsanzi@gmail.com>")]
 #[command(about = "Does awesome things with Solana")]
 struct Cli {
+    #[arg(long, default_value = "db", global = true)]
+    db_path: String,
+
     #[command(subcommand)]
     command: Commands,
-
-    #[arg(long, default_value = "wba_toolkit", global = true)]
-    db_path: String,
 }
 
 fn main() {
     println!("welcome to main");
 
     let cli = Cli::parse();
+    let path = Path::new(&cli.db_path);
+
+    // Create the directory if it doesn't exist
+    if !path.exists() {
+        fs::create_dir(path).expect("Failed to create db directory");
+    }
+
     let db = DB::open_default(&cli.db_path).unwrap();
 
     match cli.command {
@@ -75,9 +84,10 @@ fn main() {
 mod tests {
     use super::*;
     use assert_cmd::Command;
+    use predicates::str::contains;
     use solana_sdk::signer::Signer;
     use tempdir::TempDir;
-    use utils::wallet::read_wallet;
+    use utils::wallet::{get_wallet_key, read_wallet};
 
     #[test]
     fn test_keygen_command() {
@@ -86,14 +96,11 @@ mod tests {
 
         Command::cargo_bin("turbin3_pre_req")
             .unwrap()
-            .arg("keygen")
-            .arg("test_wallet")
-            .arg("--db-path")
-            .arg(db_path)
+            .args(&["keygen", "test_wallet", "--db-path", db_path])
             .assert()
-            .success();
-            // .stdout(contains("Generated wallet"));
-
+            .success()
+            .stdout(contains("saved to RocksDB"));
+        
         // Verify the wallet was stored in RocksDB
         let db = DB::open_default(db_path).unwrap();
         let wallet = read_wallet(&db, "test_wallet");
@@ -109,32 +116,24 @@ mod tests {
         // Create multiple wallets
         Command::cargo_bin("turbin3_pre_req")
             .unwrap()
-            .arg("keygen")
-            .arg("wallet1")
-            .arg("--db-path")
-            .arg(db_path)
+            .args(&["keygen", "test_wallet_1", "--db-path", db_path])
             .assert()
             .success();
 
         Command::cargo_bin("turbin3_pre_req")
             .unwrap()
-            .arg("keygen")
-            .arg("wallet2")
-            .arg("--db-path")
-            .arg(db_path)
+            .args(&["keygen", "test_wallet_2", "--db-path", db_path])
             .assert()
             .success();
 
         // List wallets
         Command::cargo_bin("turbin3_pre_req")
             .unwrap()
-            .arg("list-wallets")
-            .arg("--db-path")
-            .arg(db_path)
+            .args(&["list-wallets", "--db-path", db_path])
             .assert()
             .success()
-            .stdout(predicates::str::contains("wallet:wallet1"))
-            .stdout(predicates::str::contains("wallet:wallet2"));
+            .stdout(predicates::str::contains(get_wallet_key("test_wallet_1")))
+            .stdout(predicates::str::contains(get_wallet_key("test_wallet_2")));
     }
 
     #[test]
@@ -145,22 +144,19 @@ mod tests {
         // Generate a keypair for testing
         let keypair = Keypair::new();
         let base58_secret_key = bs58::encode(keypair.to_bytes()).into_string();
+        let wallet_name = "test_wallet";
 
         // Run the command
         Command::cargo_bin("turbin3_pre_req")
             .unwrap()
-            .arg("base58-to-wallet")
-            .arg(&base58_secret_key)
-            .arg("test_wallet")
-            .arg("--db-path")
-            .arg(db_path)
+            .args(&["base58-to-wallet", &base58_secret_key, wallet_name, "--db-path", db_path])
             .assert()
             .success()
             .stdout(predicates::str::contains("Wallet created and saved successfully!"));
 
         // Verify the wallet was stored in RocksDB
         let db = DB::open_default(db_path).unwrap();
-        let wallet = read_wallet(&db, "test_wallet");
+        let wallet = read_wallet(&db, wallet_name);
         assert_eq!(wallet.pubkey, keypair.try_pubkey().unwrap().to_string());
         assert_eq!(wallet.secret_key, keypair.to_bytes().to_vec());
     }
