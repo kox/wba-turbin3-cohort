@@ -4,27 +4,34 @@ use std::{fs, path::Path};
 use clap::{Parser, Subcommand};
 use rocksdb::DB;
 
-
 #[derive(Subcommand)]
 enum Commands {
-    Keygen { name: String },
-    ReadKeygen { name: String },
+    Keygen {
+        name: String,
+    },
+    ReadKeygen {
+        name: String,
+    },
     ListWallets,
-    Base58ToWallet { pkey_bs58: String, name: String },
-    WalletToBase58 { name: String },
-    Airdrop { name: String },
+    Base58ToWallet {
+        pkey_bs58: String,
+        name: String,
+    },
+    WalletToBase58 {
+        name: String,
+    },
+    Airdrop {
+        name: String,
+    },
     Transfer {
         from: String,
         to: String,
         amount: String,
     },
-    /*
-    Transfer {
+    CleanWallet {
+        from: String,
         to: String,
-        amount: u64,
-    },
-    CleanWallet,
-    Submit, */
+    }, // Submit
 }
 
 #[derive(Parser)]
@@ -82,18 +89,25 @@ fn main() {
             let wallet = utils::wallet::read_wallet(&db, &name);
 
             utils::wallet::wallet_to_base58(wallet);
-        },
+        }
         Commands::Airdrop { name } => {
             let wallet = utils::wallet::read_wallet(&db, &name);
 
             utils::solana::airdop(wallet, &cluster_url);
-        },
+        }
         Commands::Transfer { from, to, amount } => {
             let wallet = utils::wallet::read_wallet(&db, &from);
             // Convert the string amount to u64
-            let amount = amount.parse::<u64>().expect("Failed to parse amount into u64"); 
+            let amount = amount
+                .parse::<u64>()
+                .expect("Failed to parse amount into u64");
 
             utils::solana::transfer_sol(wallet, &to, amount, &cluster_url);
+        }
+        Commands::CleanWallet { from, to } => {
+            let wallet = utils::wallet::read_wallet(&db, &from);
+
+            utils::solana::clean_wallet(wallet, &to, &cluster_url);
         }
     }
 }
@@ -105,7 +119,7 @@ mod tests {
     use predicates::str::contains;
     use solana_sdk::{signature::Keypair, signer::Signer};
     use tempdir::TempDir;
-    use utils::wallet::{ get_wallet_key, read_wallet };
+    use utils::wallet::{get_wallet_key, read_wallet};
 
     #[test]
     fn test_keygen_command() {

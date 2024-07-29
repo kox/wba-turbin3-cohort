@@ -142,6 +142,24 @@ Options:
     --db-path <path_to_db>: The path to the RocksDB database. Defaults to wba_toolkit.
     --cluster-url <cluster_url>: The URL of the Solana cluster. Defaults to https://api.devnet.solana.com.
 
+### Clean Wallet
+Transfers the remaing SOL tokens from a Wallet to another wallet. After that the from wallet account gets closed.
+
+```bash
+    ./target/release/turbin3_pre_req clean-wallet <from_wallet> <to_wallet>  --db-path <path_to_db> --cluster-url <cluster_url>
+```
+
+Arguments:
+
+    <from_wallet>: The name of the sender's wallet.
+    <to_wallet>: The public key of the recipient's wallet.
+    
+
+Options:
+
+    --db-path <path_to_db>: The path to the RocksDB database. Defaults to wba_toolkit.
+    --cluster-url <cluster_url>: The URL of the Solana cluster. Defaults to https://api.devnet.solana.com.
+
 ## Example
 
 Here is an example workflow:
@@ -180,6 +198,9 @@ Here is an example workflow:
 
 ### Transfer 1 SOL from one wallet to another:
     ./target/release/turbin3_pre_req transfer wallet1 Be9MdYwSsMUTLCA3pV9FaVsPDSJyuokjeNZLoaU13s1W 1000000000 --db-path my_wallets_db --cluster-url https://api.devnet.solana.com
+
+### Clean Wallet from one wallet to another:
+    ./target/release/turbin3_pre_req clean-wallet wallet1 Be9MdYwSsMUTLCA3pV9FaVsPDSJyuokjeNZLoaU13s1W --db-path my_wallets_db --cluster-url https://api.devnet.solana.com
 
 
 ## Running Tests
