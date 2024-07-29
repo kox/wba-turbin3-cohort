@@ -44,11 +44,6 @@ pub fn generate_keypair(db: &DB, name: &str) {
 
     save_wallet_to_db(&wallet, db, name).expect("Failed to save wallet to RocksDB");
     println!("Wallet {} saved to RocksDB", name);
-
-    /* let wallet_json = serde_json::to_string_pretty(&wallet).unwrap();
-    db.put(get_wallet_key(name), wallet_json).unwrap();
-
-    println!("Wallet {} saved to RocksDB", name); */
 }
 
 pub fn read_wallet(db: &DB, name: &str) -> Wallet {
@@ -105,6 +100,15 @@ pub fn base58_to_wallet(pkey: &str) -> Result<Wallet, Box<dyn Error>> {
     };
 
     Ok(wallet)
+}
+
+pub fn wallet_to_base58(wallet: Wallet) -> String {
+    // Convert the secret key to base58
+    let base58 = bs58::encode(wallet.secret_key).into_string();
+
+    println!("Your private key in base58 is: {:?}", base58);
+
+    base58
 }
 
 
@@ -165,5 +169,25 @@ mod tests {
 
         // Verify the secret key
         assert_eq!(wallet.secret_key, keypair.to_bytes().to_vec());
+    }
+
+    #[test]
+    fn test_wallet_to_base58() {
+        let tmp_dir = TempDir::new("test_db").unwrap();
+        let db = DB::open_default(tmp_dir.path()).unwrap();
+
+        let wallet_name = "test_wallet";
+        generate_keypair(&db, wallet_name);
+
+        let wallet = read_wallet(&db, wallet_name);
+
+        // Expected Base58 encoded string for the given secret_key
+        let expected_base58 = bs58::encode(&wallet.secret_key).into_string();
+
+        // Call the wallet_to_base58 function
+        let base58_result = wallet_to_base58(wallet);
+
+        // Assert the result matches the expected Base58 string
+        assert_eq!(base58_result, expected_base58);
     }
 }

@@ -1,25 +1,18 @@
-mod utils; 
+mod utils;
 use std::{fs, path::Path};
 
-use rocksdb::DB;
 use clap::{Parser, Subcommand};
-use solana_sdk::signature::Keypair;
+use rocksdb::DB;
+
 
 #[derive(Subcommand)]
 enum Commands {
-    Keygen {
-        name: String,
-    },
-    ReadKeygen {
-        name: String,
-    },
+    Keygen { name: String },
+    ReadKeygen { name: String },
     ListWallets,
-    Base58ToWallet {
-        pkey_bs58: String,
-        name: String,
-    },
-    /* 
-    WalletToBase58,
+    Base58ToWallet { pkey_bs58: String, name: String },
+    WalletToBase58 { name: String },
+    /*
     Airdrop,
     Transfer {
         to: String,
@@ -56,38 +49,42 @@ fn main() {
     let db = DB::open_default(&cli.db_path).unwrap();
 
     match cli.command {
-        Commands::Keygen {name } => utils::wallet::generate_keypair(&db, &name),
-        Commands::ReadKeygen {name } => {
+        Commands::Keygen { name } => utils::wallet::generate_keypair(&db, &name),
+        Commands::ReadKeygen { name } => {
             let wallet = utils::wallet::read_wallet(&db, &name);
             println!("Wallet read: {:?}", wallet.pubkey);
-        },
+        }
         Commands::ListWallets => {
             let wallets = utils::wallet::list_wallets(&db);
             println!("wallets: {:?}", wallets)
-        },
+        }
         Commands::Base58ToWallet { pkey_bs58, name } => {
             match utils::wallet::base58_to_wallet(&pkey_bs58) {
                 Ok(wallet) => {
                     utils::wallet::save_wallet_to_db(&wallet, &db, &name).unwrap();
                     println!("Wallet created and saved successfully!");
-                },
+                }
                 Err(e) => {
                     eprintln!("Error creating wallet: {}", e);
-                },
+                }
             }
-        },
+        }
+        Commands::WalletToBase58 { name } => {
+            let wallet = utils::wallet::read_wallet(&db, &name);
+
+            utils::wallet::wallet_to_base58(wallet);
+        }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use assert_cmd::Command;
     use predicates::str::contains;
-    use solana_sdk::signer::Signer;
+    use solana_sdk::{signature::Keypair, signer::Signer};
     use tempdir::TempDir;
-    use utils::wallet::{get_wallet_key, read_wallet};
+    use utils::wallet::{ get_wallet_key, read_wallet };
 
     #[test]
     fn test_keygen_command() {
@@ -100,7 +97,7 @@ mod tests {
             .assert()
             .success()
             .stdout(contains("saved to RocksDB"));
-        
+
         // Verify the wallet was stored in RocksDB
         let db = DB::open_default(db_path).unwrap();
         let wallet = read_wallet(&db, "test_wallet");
@@ -149,15 +146,53 @@ mod tests {
         // Run the command
         Command::cargo_bin("turbin3_pre_req")
             .unwrap()
-            .args(&["base58-to-wallet", &base58_secret_key, wallet_name, "--db-path", db_path])
+            .args(&[
+                "base58-to-wallet",
+                &base58_secret_key,
+                wallet_name,
+                "--db-path",
+                db_path,
+            ])
             .assert()
             .success()
-            .stdout(predicates::str::contains("Wallet created and saved successfully!"));
+            .stdout(predicates::str::contains(
+                "Wallet created and saved successfully!",
+            ));
 
         // Verify the wallet was stored in RocksDB
         let db = DB::open_default(db_path).unwrap();
         let wallet = read_wallet(&db, wallet_name);
-        assert_eq!(wallet.pubkey, keypair.try_pubkey().unwrap().to_string());
+        assert_eq!(wallet.pubkey, keypair.pubkey().to_string());
         assert_eq!(wallet.secret_key, keypair.to_bytes().to_vec());
+    }
+
+    #[test]
+    fn test_wallet_to_base58_command() {
+        let tmp_dir = TempDir::new("wallet_to_base58").expect("Failed to create a new folder");
+        let db_path = tmp_dir.path().to_str().unwrap();
+
+        Command::cargo_bin("turbin3_pre_req")
+            .unwrap()
+            .args(&["keygen", "test_wallet", "--db-path", db_path])
+            .assert()
+            .success()
+            .stdout(contains("saved to RocksDB"));
+
+        // Verify the wallet was stored in RocksDB
+        let base58_secret_key: String;
+        {
+            let db = DB::open_default(&db_path).expect("Could not open RocksDB");
+            let wallet = read_wallet(&db, "test_wallet");
+            base58_secret_key = bs58::encode(&wallet.secret_key).into_string();
+            drop(db); // Ensure the database is closed before running the next command
+        }
+
+        // Run the command
+        Command::cargo_bin("turbin3_pre_req")
+            .unwrap()
+            .args(&["wallet-to-base58", "test_wallet", "--db-path", db_path])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains(base58_secret_key));
     }
 }
